@@ -1,7 +1,7 @@
 # Ferroamp Control for Home Assistant
 
 A control driver for the **Ferroamp Energy Hub** that implements the
-[EMS inverter contract](https://github.com/andrei/ha-ems) so it can be
+[EMS inverter contract](https://github.com/beolink/ha-ems) so it can be
 orchestrated by `ha-ems`. It exposes mode selection, battery power setpoints
 and the standard sensor surface.
 
