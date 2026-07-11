@@ -6,7 +6,7 @@
         "description": "Writable control of the Ferroamp EnergyHub over the local MQTT ExtAPI. The prefix must match the one EMS drives (default 'ferroamp'). Control stays OFF until you enable the 'Ferroamp control enabled' switch.",
         "data": {
           "prefix": "Entity prefix (must match EMS)",
-          "base_topic": "Ferroamp ExtAPI MQTT base topic (commands go to <base>/control/request)",
+          "base_topic": "Ferroamp ExtAPI MQTT base topic (commands go to BASE/control/request)",
           "max_charge_w": "Max charge power (W)",
           "max_discharge_w": "Max discharge power (W)"
         }

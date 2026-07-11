@@ -28,6 +28,7 @@ jobs:
       - name: Extract changelog section
         run: |
           TAG="${GITHUB_REF_NAME#v}"
+          touch CHANGELOG.md
           awk -v ver="$TAG" '
             $0 ~ "^## \\[" ver "\\]" {flag=1; next}
             /^## \[/ {flag=0}
