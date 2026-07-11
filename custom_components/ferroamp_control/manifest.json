@@ -1,13 +1,13 @@
 {
   "domain": "ferroamp_control",
   "name": "Ferroamp Control",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "documentation": "https://github.com/beolink/ha-ferroamp-control",
   "issue_tracker": "https://github.com/beolink/ha-ferroamp-control/issues",
   "codeowners": ["@beolink"],
   "config_flow": true,
-  "iot_class": "local_polling",
+  "iot_class": "local_push",
   "integration_type": "hub",
-  "requirements": ["pymodbus>=3.5.0"],
-  "dependencies": []
+  "requirements": [],
+  "dependencies": ["mqtt"]
 }

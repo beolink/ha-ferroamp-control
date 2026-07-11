@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ferroamp Control",
+        "description": "Skrivbar styrning av Ferroamp EnergyHub via lokala MQTT ExtAPI. Prefixet måste matcha det EMS styr (standard 'ferroamp'). Styrning är AV tills du slår på reglaget 'Ferroamp control enabled'.",
+        "data": {
+          "prefix": "Entitetsprefix (måste matcha EMS)",
+          "base_topic": "Ferroamp ExtAPI MQTT-bastopic (kommandon skickas till <bas>/control/request)",
+          "max_charge_w": "Max laddeffekt (W)",
+          "max_discharge_w": "Max urladdningseffekt (W)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Detta prefix är redan konfigurerat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ferroamp Control",
+        "data": {
+          "prefix": "Entitetsprefix (måste matcha EMS)",
+          "base_topic": "Ferroamp ExtAPI MQTT-bastopic",
+          "max_charge_w": "Max laddeffekt (W)",
+          "max_discharge_w": "Max urladdningseffekt (W)"
+        }
+      }
+    }
+  }
+}
