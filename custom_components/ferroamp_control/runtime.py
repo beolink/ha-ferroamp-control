@@ -38,6 +38,7 @@ class FerroampControlRuntime:
     setpoint_w: float = 0.0
     grid_limit_w: float | None = None
     _commanded: bool = False
+    _last_cmd: tuple | None = None  # last (name, watts) actually published
 
     @classmethod
     def from_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> "FerroampControlRuntime":
@@ -66,6 +67,13 @@ class FerroampControlRuntime:
             name, watts = mqtt_control.command_for(
                 self.setpoint_w, self.max_charge_w, self.max_discharge_w
             )
+        # Only publish when the command actually changes. EMS re-writes the
+        # setpoint every tick; re-sending an unchanged command (especially
+        # `auto`) can make the hub re-ramp its self-consumption and wastes a
+        # transaction (risking a NAK against the next real command).
+        if (name, watts) == self._last_cmd:
+            return
+        self._last_cmd = (name, watts)
         await mqtt_control.async_send(self.hass, self.base_topic, name, watts)
         if name != CMD_AUTO:
             self._commanded = True
@@ -76,3 +84,4 @@ class FerroampControlRuntime:
         if self._commanded:
             await mqtt_control.async_send(self.hass, self.base_topic, CMD_AUTO)
             self._commanded = False
+        self._last_cmd = None  # force a fresh publish next time control resumes
