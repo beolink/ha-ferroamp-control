@@ -64,7 +64,9 @@ shows the verdict on `sensor.ferroamp_control_status` and
 `binary_sensor.ferroamp_following`. A NAK is logged as a warning. Answers to
 transactions the driver did not send (another app or integration commanding
 the same hub) are ignored and counted in the `unmatched` attribute, which is
-the quickest way to see that something else is talking to the hub.
+the quickest way to see that something else is talking to the hub. A command
+the hub refused is published again on the next write even when the setpoint
+is unchanged (0.2.1); EMS Steward 0.30's recovery from a NAK depends on it.
 
 ## Roadmap
 

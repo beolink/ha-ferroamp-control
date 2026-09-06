@@ -78,7 +78,17 @@ class FerroampControlRuntime:
         # setpoint every tick; re-sending an unchanged command (especially
         # `auto`) can make the hub re-ramp its self-consumption and wastes a
         # transaction (risking a NAK against the next real command).
-        if (name, watts) == self._last_cmd:
+        #
+        # Unless the hub refused the last attempt: a NAK ("transaction in
+        # progress" against the previous command) left _last_cmd set, so
+        # EMS's re-write of the same setpoint on the next tick was deduped
+        # away and the hub ran on the OLD command until the plan changed
+        # its setpoint, hours in a hold period, with EMS's
+        # inverter_not_following issue raised and no way to clear it. A
+        # NAK'd command is forgotten in handle_answer and, belt and braces,
+        # never deduped against while the tracker says "not following"
+        # (0.2.1; EMS's self-healing on a NAK needs this release).
+        if (name, watts) == self._last_cmd and self.tracker.following is not False:
             return
         self._last_cmd = (name, watts)
         await self._send(name, watts)
@@ -113,6 +123,10 @@ class FerroampControlRuntime:
             _LOGGER.warning("Ferroamp hub refused command %s (%s): %s",
                             (self.tracker.last_nak or {}).get("cmd"), kind,
                             (self.tracker.last_nak or {}).get("msg"))
+            if self.tracker.following is False:
+                # The latest command did not take: the next async_apply
+                # must publish again even if the setpoint is unchanged.
+                self._last_cmd = None
         else:
             _LOGGER.debug("Ferroamp hub %s ack: %s", kind,
                           (self.tracker.last_ack or {}).get("msg"))

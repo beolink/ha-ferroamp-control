@@ -4,6 +4,22 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.2.1] - 2026-09-06
+
+### Fixed
+- **A refused command is sent again.** The driver publishes only when the
+  command changes (0.1.1), and it remembered the command even when the hub
+  answered NAK ("transaction in progress" against the previous command), so
+  EMS's re-write of the same setpoint on the next tick was deduped away and
+  the hub ran on the OLD command until the plan changed its setpoint: hours
+  in a hold period, with EMS's *inverter_not_following* issue raised and no
+  way for EMS to repair it. A NAK on the latest command now forgets the
+  dedupe key, and nothing is deduped while `binary_sensor.<prefix>_following`
+  is off. EMS Steward 0.30 relies on this: its hold mode changes the command
+  at every quarter boundary where the plan switches between charge, hold and
+  auto, so a NAK is far more common than before, and its self-healing on a
+  NAK ("the next tick's re-write clears it") needs this release on the hub.
+
 ## [0.2.0] - 2026-09-06
 
 ### Added
