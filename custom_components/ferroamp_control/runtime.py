@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from . import mqtt_control
+from .ack_tracker import KINDS, CommandTracker
 from .const import (
     CMD_AUTO,
     CONF_BASE_TOPIC,
@@ -39,6 +41,11 @@ class FerroampControlRuntime:
     grid_limit_w: float | None = None
     _commanded: bool = False
     _last_cmd: tuple | None = None  # last (name, watts) actually published
+    # Every command paired with the hub's ack / nak (F42); the status
+    # sensor and the "following" binary sensor read it.
+    tracker: CommandTracker = field(default_factory=CommandTracker)
+    # Entities that want to know when the tracker changed.
+    _listeners: list = field(default_factory=list)
 
     @classmethod
     def from_entry(cls, hass: HomeAssistant, entry: ConfigEntry) -> "FerroampControlRuntime":
@@ -74,7 +81,7 @@ class FerroampControlRuntime:
         if (name, watts) == self._last_cmd:
             return
         self._last_cmd = (name, watts)
-        await mqtt_control.async_send(self.hass, self.base_topic, name, watts)
+        await self._send(name, watts)
         if name != CMD_AUTO:
             self._commanded = True
 
@@ -82,6 +89,43 @@ class FerroampControlRuntime:
         """Hand the battery back to the hub's own logic. Called when control is
         switched off, but only if we had actually commanded it."""
         if self._commanded:
-            await mqtt_control.async_send(self.hass, self.base_topic, CMD_AUTO)
+            await self._send(CMD_AUTO, None)
             self._commanded = False
         self._last_cmd = None  # force a fresh publish next time control resumes
+        # Nothing to follow while control is off: the verdicts start over
+        # when control resumes, so a NAK from last week never counts.
+        self.tracker.reset()
+        self._notify()
+
+    async def _send(self, name: str, watts: int | None) -> None:
+        payload = await mqtt_control.async_send(self.hass, self.base_topic, name, watts)
+        self.tracker.sent(payload["transId"], name, payload["cmd"].get("arg"), time.time())
+        self._notify()
+
+    def handle_answer(self, kind: str, payload: str) -> None:
+        """One message from ``<base_topic>/control/response`` or ``/result``."""
+        if kind not in KINDS:
+            return
+        verdict = self.tracker.receive(kind, payload, time.time())
+        if verdict is None:
+            _LOGGER.debug("Ferroamp control %s not for us: %s", kind, payload)
+        elif verdict == "nak":
+            _LOGGER.warning("Ferroamp hub refused command %s (%s): %s",
+                            (self.tracker.last_nak or {}).get("cmd"), kind,
+                            (self.tracker.last_nak or {}).get("msg"))
+        else:
+            _LOGGER.debug("Ferroamp hub %s ack: %s", kind,
+                          (self.tracker.last_ack or {}).get("msg"))
+        self._notify()
+
+    def add_listener(self, cb) -> "callable":
+        self._listeners.append(cb)
+
+        def _remove() -> None:
+            if cb in self._listeners:
+                self._listeners.remove(cb)
+        return _remove
+
+    def _notify(self) -> None:
+        for cb in list(self._listeners):
+            cb()

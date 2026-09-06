@@ -11,6 +11,10 @@ control commands on ``<base_topic>/control/request`` as JSON:
 the hub's own self-consumption logic. ``arg`` is verified against your unit's
 ExtAPI documentation — the base topic in particular can differ between hubs.
 
+The hub answers on ``<base_topic>/control/response`` (receipt) and
+``<base_topic>/control/result`` (outcome), each ``{"transId": ..., "status":
+"ack"|"nak", "msg": ...}``; ``ack_tracker`` pairs them with what was sent.
+
 Every publish is gated by the driver's "control enabled" switch upstream: this
 module only builds and sends the payload when explicitly asked to.
 """
@@ -49,11 +53,26 @@ def command_for(setpoint_w: float, max_charge_w: float, max_discharge_w: float) 
     return CMD_AUTO, None
 
 
+def request_topic(base_topic: str) -> str:
+    return f"{base_topic.rstrip('/')}/control/request"
+
+
+def answer_topics(base_topic: str) -> dict[str, str]:
+    """The two topics the hub answers a request on, by kind (see
+    ack_tracker): ``response`` is the receipt, ``result`` the outcome."""
+    base = base_topic.rstrip('/')
+    return {"response": f"{base}/control/response", "result": f"{base}/control/result"}
+
+
 async def async_send(hass: "HomeAssistant", base_topic: str, name: str,
-                     watts: int | None = None) -> None:
+                     watts: int | None = None) -> dict:
+    """Publish one command; returns the payload sent (its ``transId`` is
+    what the hub's answer will carry)."""
     from homeassistant.components import mqtt
 
-    topic = f"{base_topic.rstrip('/')}/control/request"
+    topic = request_topic(base_topic)
     payload = build_payload(name, watts)
-    _LOGGER.info("Ferroamp control → %s %s", topic, payload["cmd"])
+    _LOGGER.info("Ferroamp control → %s %s (transId %s)", topic, payload["cmd"],
+                 payload["transId"])
     await mqtt.async_publish(hass, topic, json.dumps(payload), qos=0, retain=False)
+    return payload

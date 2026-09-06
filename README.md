@@ -5,7 +5,7 @@ A writable control driver for the **Ferroamp Energy Hub** that implements the
 orchestrated by `ha-ems` (EMS Steward). It exposes the mode selector and battery
 power setpoint and actuates the hub over its local **MQTT ExtAPI**.
 
-## Status — v0.1 (MQTT ExtAPI, control OFF by default)
+## Status — v0.2 (MQTT ExtAPI, control OFF by default, hub answers paired)
 
 The driver is implemented against Ferroamp's local MQTT ExtAPI. It publishes
 `charge` / `discharge` / `auto` commands to `<base_topic>/control/request`
@@ -43,6 +43,8 @@ this driver *alongside* it. This driver provides only the writable surface.
 | `select.ferroamp_mode` | `self_consumption`, `peak_shaving`, `forced_charge`, `forced_discharge`, `idle` |
 | `number.ferroamp_battery_power_setpoint` | W, ± (charge / discharge → ExtAPI command) |
 | `number.ferroamp_grid_power_limit` | W, advisory peak cap (peak shaving realised via setpoint) |
+| `sensor.ferroamp_control_status` | `idle` / `pending` / `ack` / `nak`: the hub's answer to the latest command, with `last_command`, `last_ack`, `last_nak`, `last_result` as attributes |
+| `binary_sensor.ferroamp_following` | on = the hub acknowledged the latest command, off = it refused it (NAK); EMS raises a Repairs issue after two ticks of NAK |
 
 Telemetry sensors (`sensor.ferroamp_soc`, `_battery_power`, `_grid_power`,
 `_solar_power`, `_battery_capacity`) are consumed by EMS directly from the
@@ -50,6 +52,19 @@ Telemetry sensors (`sensor.ferroamp_soc`, `_battery_power`, `_grid_power`,
 
 See `custom_components/ems/inverter_contract.py` in the EMS repo for the
 authoritative contract definition.
+
+### The hub answers back (0.2.0)
+
+Every command carries a `transId`; the hub answers on
+`<base_topic>/control/response` (receipt: `ack` "sending cmd to ESOs", or
+`nak`, typically "transaction in progress") and on
+`<base_topic>/control/result` (outcome: "all ESOs have changed setting").
+The driver subscribes to both, pairs the answers with what it sent and
+shows the verdict on `sensor.ferroamp_control_status` and
+`binary_sensor.ferroamp_following`. A NAK is logged as a warning. Answers to
+transactions the driver did not send (another app or integration commanding
+the same hub) are ignored and counted in the `unmatched` attribute, which is
+the quickest way to see that something else is talking to the hub.
 
 ## Roadmap
 
