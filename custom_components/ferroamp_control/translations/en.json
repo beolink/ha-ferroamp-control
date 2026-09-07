@@ -8,7 +8,11 @@
           "prefix": "Entity prefix (must match EMS)",
           "base_topic": "Ferroamp ExtAPI MQTT base topic (commands go to BASE/control/request)",
           "max_charge_w": "Max charge power (W)",
-          "max_discharge_w": "Max discharge power (W)"
+          "max_discharge_w": "Max discharge power (W)",
+          "send_statistics": "Send anonymous usage statistics"
+        },
+        "data_description": {
+          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url}"
         }
       }
     },
@@ -28,7 +32,7 @@
           "send_statistics": "Send anonymous usage statistics"
         },
         "data_description": {
-          "send_statistics": "One report per day to stats.rnet.se: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: https://stats.rnet.se/integritet"
+          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url}"
         }
       }
     }

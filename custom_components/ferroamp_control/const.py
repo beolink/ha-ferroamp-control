@@ -32,3 +32,7 @@ INVERTER_MODES = [
 CMD_CHARGE = "charge"
 CMD_DISCHARGE = "discharge"
 CMD_AUTO = "auto"
+
+# Must match OPTION_KEY in stats.py. Kept here so config_flow can build its
+# schema without importing stats.py, which pulls in Home Assistant.
+CONF_SEND_STATISTICS = "send_statistics"
