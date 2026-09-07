@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_PREFIX,
     DOMAIN,
 )
+from .stats import OPTION_KEY as CONF_SEND_STATISTICS, async_forget_install
 
 
 def _power(unit: str = "W") -> NumberSelector:
@@ -38,6 +39,7 @@ def _schema(cur: dict) -> vol.Schema:
         vol.Required(CONF_BASE_TOPIC, default=cur.get(CONF_BASE_TOPIC, DEFAULT_BASE_TOPIC)): str,
         vol.Required(CONF_MAX_CHARGE_W, default=cur.get(CONF_MAX_CHARGE_W, DEFAULT_MAX_W)): _power(),
         vol.Required(CONF_MAX_DISCHARGE_W, default=cur.get(CONF_MAX_DISCHARGE_W, DEFAULT_MAX_W)): _power(),
+        vol.Optional(CONF_SEND_STATISTICS, default=cur.get(CONF_SEND_STATISTICS, True)): bool,
     })
 
 
@@ -63,6 +65,13 @@ class FerroampControlOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
+            was_on = {**self.config_entry.data, **self.config_entry.options}.get(
+                CONF_SEND_STATISTICS, True)
+            now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
+            if was_on and not now_on:
+                # Switching it off erases what has already been sent, rather
+                # than merely going quiet.
+                await async_forget_install(self.hass, self.config_entry, DOMAIN)
             return self.async_create_entry(title="", data=user_input)
         cur = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(step_id="init", data_schema=_schema(cur))

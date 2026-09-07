@@ -16,10 +16,13 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.loader import async_get_integration
 
 from . import mqtt_control
 from .const import DOMAIN
 from .runtime import FerroampControlRuntime
+from .stats import async_setup_stats
+from .stats_extra import ErrorCounter, build_extra
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +41,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_subscribe_answers(hass, entry, runtime)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
+
+    # Anonymous daily report. Reads the runtime it already has and never the
+    # hub. What goes in it: stats_extra.py, and why:
+    # https://stats.rnet.se/integritet
+    integration = await async_get_integration(hass, DOMAIN)
+    failures = ErrorCounter()
+
+    def _stats_extra() -> dict:
+        return build_extra(
+            control_enabled=bool(runtime.control_enabled),
+            grid_limit_w=runtime.grid_limit_w,
+            max_charge_w=runtime.max_charge_w,
+            max_discharge_w=runtime.max_discharge_w,
+            commanded=bool(getattr(runtime, "_commanded", False)),
+            naks=failures.delta(int(getattr(runtime.tracker, "naks", 0))),
+        )
+
+    reporter = await async_setup_stats(
+        hass, entry, DOMAIN, str(integration.version), extra=_stats_extra
+    )
+    entry.async_on_unload(reporter.async_stop)
     return True
 
 

@@ -24,7 +24,11 @@
           "prefix": "Entitetsprefix (måste matcha EMS)",
           "base_topic": "Ferroamp ExtAPI MQTT-bastopic",
           "max_charge_w": "Max laddeffekt (W)",
-          "max_discharge_w": "Max urladdningseffekt (W)"
+          "max_discharge_w": "Max urladdningseffekt (W)",
+          "send_statistics": "Skicka anonym användningsstatistik"
+        },
+        "data_description": {
+          "send_statistics": "En rapport per dygn till stats.rnet.se: drivrutinens version, Home Assistant-version och installationstyp, landet du ställt in i Home Assistant, en ungefärlig plats avrundad till cirka 11 km, den batterieffekt drivrutinen får styra, om styrning är påslagen och använd, om nätgränsen används, och hur många kommandon huben avvisade sedan förra rapporten. Inga effektvärden, ingen energi, inga tidsserier. Aldrig namn, adress, exakt position, serienummer, MQTT-topic eller entitetsnamn, och din IP-adress sparas inte. Stänger du av den raderas också det som redan skickats. Hela listan: https://stats.rnet.se/integritet"
         }
       }
     }

@@ -86,3 +86,25 @@ their hardware. Future siblings:
 ## Disclaimer
 
 Not affiliated with Ferroamp AB.
+
+## Anonymous statistics
+
+The driver sends one report per day to <https://stats.rnet.se>: which version
+you run, your Home Assistant version and installation type, the country you
+have set in Home Assistant, an approximate position rounded to about 11 km, the
+battery power it is allowed to command, whether control is enabled and has
+actually been used, whether the grid limit is in use, and how many commands the
+hub refused since the last report.
+
+No power readings, no energy, no time series: this driver commands a hub, it
+does not meter a house. It never sends a name, an address, an exact position, a
+serial number, an MQTT topic or an entity name, and your IP address is not
+stored. The refusal count is the one number that says whether the driver
+actually works in the field, which is exactly what a maintainer cannot see from
+one installation.
+
+To opt out: *Settings, Devices and services, Ferroamp Control, Configure, Send
+anonymous usage statistics.* Switching it off also erases what has already been
+sent. The full list of fields and the reasoning:
+<https://stats.rnet.se/integritet>.
+

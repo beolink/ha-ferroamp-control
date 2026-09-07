@@ -86,6 +86,7 @@ class CommandTracker:
     last_result: dict | None = None                 # the last control/result
     following: bool | None = None
     unmatched: int = 0                              # answers to someone else's commands
+    naks: int = 0                                   # cumulative, for the daily report
 
     def sent(self, trans_id: str, name: str, arg: str | None, at: float) -> None:
         cmd = {"name": name, "arg": arg}
@@ -116,6 +117,7 @@ class CommandTracker:
             self.last_ack = record
         else:
             self.last_nak = record
+            self.naks += 1
         if kind == KIND_RESULT:
             self.last_result = {**record, "verdict": verdict}
             # The result closes the transaction; a response alone keeps it
