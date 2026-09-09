@@ -1,4 +1,9 @@
-"""``sensor.{prefix}_control_status`` — what the hub said to the last command.
+"""``sensor.{prefix}_last_command`` — what the hub said to the last command.
+
+Until 0.3.0 this sensor claimed ``sensor.{prefix}_control_status``, the id
+the Ferroamp integration's own control-status sensor already holds, so it
+ended up as ``..._control_status_2``; an existing entry is renamed once at
+setup (see __init__.py).
 
 State: ``idle`` (nothing sent since control came on), ``pending`` (sent, no
 answer yet), ``ack`` or ``nak`` (the hub's verdict on the latest command).
@@ -29,7 +34,7 @@ async def async_setup_entry(
 
 
 class FerroampControlStatusSensor(SensorEntity):
-    _attr_name = "Ferroamp control status"
+    _attr_name = "Ferroamp last command"
     _attr_icon = "mdi:message-reply-text-outline"
     _attr_has_entity_name = False
     _attr_should_poll = False
@@ -37,7 +42,7 @@ class FerroampControlStatusSensor(SensorEntity):
     def __init__(self, runtime: FerroampControlRuntime) -> None:
         self._rt = runtime
         self._attr_unique_id = f"{runtime.entry_id}_control_status"
-        self.entity_id = f"sensor.{runtime.prefix}_control_status"
+        self.entity_id = f"sensor.{runtime.prefix}_last_command"
         self._attr_device_info = device_info(runtime.entry_id)
 
     async def async_added_to_hass(self) -> None:

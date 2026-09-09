@@ -43,7 +43,7 @@ this driver *alongside* it. This driver provides only the writable surface.
 | `select.ferroamp_mode` | `self_consumption`, `peak_shaving`, `forced_charge`, `forced_discharge`, `idle` |
 | `number.ferroamp_battery_power_setpoint` | W, ± (charge / discharge → ExtAPI command) |
 | `number.ferroamp_grid_power_limit` | W, advisory peak cap (peak shaving realised via setpoint) |
-| `sensor.ferroamp_control_status` | `idle` / `pending` / `ack` / `nak`: the hub's answer to the latest command, with `last_command`, `last_ack`, `last_nak`, `last_result` as attributes |
+| `sensor.ferroamp_last_command` | `idle` / `pending` / `ack` / `nak`: the hub's answer to the latest command, with `last_command`, `last_ack`, `last_nak`, `last_result` as attributes |
 | `binary_sensor.ferroamp_following` | on = the hub acknowledged the latest command, off = it refused it (NAK); EMS raises a Repairs issue after two ticks of NAK |
 
 Telemetry sensors (`sensor.ferroamp_soc`, `_battery_power`, `_grid_power`,
@@ -60,7 +60,7 @@ Every command carries a `transId`; the hub answers on
 `nak`, typically "transaction in progress") and on
 `<base_topic>/control/result` (outcome: "all ESOs have changed setting").
 The driver subscribes to both, pairs the answers with what it sent and
-shows the verdict on `sensor.ferroamp_control_status` and
+shows the verdict on `sensor.ferroamp_last_command` and
 `binary_sensor.ferroamp_following`. A NAK is logged as a warning. Answers to
 transactions the driver did not send (another app or integration commanding
 the same hub) are ignored and counted in the `unmatched` attribute, which is

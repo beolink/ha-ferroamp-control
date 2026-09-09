@@ -4,6 +4,16 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.1] - 2026-09-09
+
+### Fixed
+- **The verdict sensor has its own entity id.** It used to claim
+  `sensor.<prefix>_control_status`, the id the Ferroamp integration's own
+  control-status sensor already holds, and so ended up as
+  `sensor.<prefix>_control_status_2`. It is `sensor.<prefix>_last_command`
+  now (states idle, pending, ack, nak, same attributes); an existing
+  registry entry is renamed once at setup.
+
 ## [0.2.1] - 2026-09-06
 
 ### Fixed

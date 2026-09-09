@@ -38,6 +38,7 @@ PLATFORMS: list[Platform] = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime = FerroampControlRuntime.from_entry(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
+    _rename_verdict_sensor(hass, entry, runtime)
     await _async_subscribe_answers(hass, entry, runtime)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
@@ -63,6 +64,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     entry.async_on_unload(reporter.async_stop)
     return True
+
+
+def _rename_verdict_sensor(hass: HomeAssistant, entry: ConfigEntry,
+                           runtime: FerroampControlRuntime) -> None:
+    """0.3.1: the verdict sensor used to claim sensor.{prefix}_control_status,
+    the id the Ferroamp integration's own control-status sensor already has,
+    so it became ..._control_status_2. It is sensor.{prefix}_last_command
+    now; a registry entry under the old id is renamed once."""
+    try:
+        from homeassistant.helpers import entity_registry as er
+        registry = er.async_get(hass)
+        current = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_control_status")
+        wanted = f"sensor.{runtime.prefix}_last_command"
+        if current and current != wanted and registry.async_get(wanted) is None:
+            registry.async_update_entity(current, new_entity_id=wanted)
+            _LOGGER.info("Renamed %s to %s", current, wanted)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Verdict sensor rename skipped: %s", err)
 
 
 async def _async_subscribe_answers(hass: HomeAssistant, entry: ConfigEntry,
