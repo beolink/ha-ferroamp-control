@@ -21,7 +21,7 @@ from homeassistant.loader import async_get_integration
 from . import mqtt_control
 from .const import DOMAIN
 from .runtime import FerroampControlRuntime
-from .stats import async_setup_stats
+from .stats import async_setup_stats, async_stop_stats
 from .stats_extra import ErrorCounter, build_extra
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,34 +35,59 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+_FAILURES: dict[str, ErrorCounter] = {}
+
+
+def _stats_extra_for(hass: HomeAssistant, entry: ConfigEntry) -> dict:
+    """The driver's part of the anonymous daily report.
+
+    Resolved when the report is built, not when it is armed, so a set-up that
+    did not finish (the broker or the hub away) still reports the driver as
+    installed. Reads the runtime it already has and never the hub. What goes
+    in it: stats_extra.py, and why: https://stats.rnet.se/integritet
+    """
+    runtime = (hass.data.get(DOMAIN) or {}).get(entry.entry_id)
+    failures = _FAILURES.setdefault(entry.entry_id, ErrorCounter())
+    if runtime is None:
+        config = {**entry.data, **entry.options}
+        return build_extra(
+            control_enabled=False,
+            grid_limit_w=config.get("grid_limit_w"),
+            max_charge_w=config.get("max_charge_w"),
+            max_discharge_w=config.get("max_discharge_w"),
+            commanded=False,
+            naks=0,
+        )
+    return build_extra(
+        control_enabled=bool(runtime.control_enabled),
+        grid_limit_w=runtime.grid_limit_w,
+        max_charge_w=runtime.max_charge_w,
+        max_discharge_w=runtime.max_discharge_w,
+        commanded=bool(getattr(runtime, "_commanded", False)),
+        naks=failures.delta(int(getattr(runtime.tracker, "naks", 0))),
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Armed before anything that can raise, and stopped only from
+    # async_unload_entry: Home Assistant runs an entry's on-unload callbacks
+    # after every failed set-up attempt, so a reporter tied to them goes quiet
+    # exactly while the hub or the broker is away.
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        await async_setup_stats(
+            hass, entry, DOMAIN, str(integration.version),
+            extra=lambda: _stats_extra_for(hass, entry),
+        )
+    except Exception:  # noqa: BLE001 - statistics must never break a set-up
+        _LOGGER.debug("Could not arm the statistics reporter", exc_info=True)
+
     runtime = FerroampControlRuntime.from_entry(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
     _rename_verdict_sensor(hass, entry, runtime)
     await _async_subscribe_answers(hass, entry, runtime)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
-
-    # Anonymous daily report. Reads the runtime it already has and never the
-    # hub. What goes in it: stats_extra.py, and why:
-    # https://stats.rnet.se/integritet
-    integration = await async_get_integration(hass, DOMAIN)
-    failures = ErrorCounter()
-
-    def _stats_extra() -> dict:
-        return build_extra(
-            control_enabled=bool(runtime.control_enabled),
-            grid_limit_w=runtime.grid_limit_w,
-            max_charge_w=runtime.max_charge_w,
-            max_discharge_w=runtime.max_discharge_w,
-            commanded=bool(getattr(runtime, "_commanded", False)),
-            naks=failures.delta(int(getattr(runtime.tracker, "naks", 0))),
-        )
-
-    reporter = await async_setup_stats(
-        hass, entry, DOMAIN, str(integration.version), extra=_stats_extra
-    )
-    entry.async_on_unload(reporter.async_stop)
     return True
 
 
@@ -111,6 +136,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
+        # Only here, never from an on-unload callback: those also run when a
+        # set-up attempt fails, and the report has to survive that.
+        await async_stop_stats(hass, entry, DOMAIN)
     return unload_ok
 
 

@@ -4,6 +4,21 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [Unreleased]
+
+### Fixed
+- **The daily report keeps going while the device is offline.** A device that
+  is unreachable at start-up makes the entry raise ConfigEntryNotReady, and
+  Home Assistant then retries the set-up for as long as it stays away,
+  running the entry's on-unload callbacks after every failed attempt. The
+  reporter was built at the end of a successful set-up and stopped by such a
+  callback, so an installation went silent exactly while something was wrong
+  with it. It is armed before the first call that can raise, kept in
+  `hass.data` by the shared client, re-pointed rather than re-armed when a
+  retry comes round, and stopped only from `async_unload_entry`. Its payload
+  is resolved when the report is built, so a set-up that never finished still
+  reports the installation.
+
 ## [0.3.1] - 2026-09-09
 
 ### Fixed
