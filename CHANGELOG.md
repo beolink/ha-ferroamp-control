@@ -4,6 +4,15 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.4] - 2026-09-11
+
+### Fixed
+- An entry unloaded while its first daily report was still on the wire no
+  longer arms the daily timer when the answer comes. Nothing held that
+  reporter any more, so the timer could never be stopped and an old reporter
+  kept sending beside the new one. The shared `stats.py` now matches EMS
+  Steward 0.35.2's copy byte for byte.
+
 ## [0.3.3] — 2026-09-10
 
 ### Added
