@@ -108,3 +108,6 @@ anonymous usage statistics.* Switching it off also erases what has already been
 sent. The full list of fields and the reasoning:
 <https://stats.rnet.se/integritet>.
 
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE).
