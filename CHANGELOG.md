@@ -4,6 +4,13 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.3] — 2026-09-10
+
+### Added
+- The daily report carries `ha_id`, a hash that links the beolink plugins on
+  the same Home Assistant, and the number of warnings and errors the driver
+  logged since the previous report. Counts only, never a message.
+
 ## [0.3.2] - 2026-09-10
 
 ### Fixed

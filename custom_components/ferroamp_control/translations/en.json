@@ -12,7 +12,7 @@
           "send_statistics": "Send anonymous usage statistics"
         },
         "data_description": {
-          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url}"
+          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url} It also sends a hash that links the beolink plugins running on the same Home Assistant, and how many warnings and errors the integration logged since the previous report, never the messages themselves."
         }
       }
     },
@@ -32,7 +32,7 @@
           "send_statistics": "Send anonymous usage statistics"
         },
         "data_description": {
-          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url}"
+          "send_statistics": "One report per day to {endpoint}: driver version, Home Assistant version and installation type, the country you configured in Home Assistant, an approximate position rounded to about 11 km, the battery power the driver is allowed to command, whether control is enabled and in use, whether the grid limit is used, and how many commands the hub refused since the last report. No power readings, no energy, no time series. Never a name, an address, an exact position, a serial number, an MQTT topic or an entity name, and your IP address is not stored. Switching this off also erases what has already been sent. The full list: {privacy_url} It also sends a hash that links the beolink plugins running on the same Home Assistant, and how many warnings and errors the integration logged since the previous report, never the messages themselves."
         }
       }
     }
