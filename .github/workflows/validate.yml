@@ -19,17 +19,14 @@ jobs:
   hacs:
     name: HACS validation
     runs-on: ubuntu-latest
-    # The HACS action fetches hacs.json/manifest through the GitHub API, which
-    # fails while this repository is private (HACS cannot install private
-    # repos either). Non-blocking until the repo goes public — then remove
-    # continue-on-error and this comment.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
         with:
           category: integration
-          # Custom integrations are not in the home-assistant/brands repo.
+          # Brand images ship in the integration itself (custom_components/<domain>/brand/),
+          # which Home Assistant reads since 2026.3; the brands repository no longer takes
+          # custom integrations.
           ignore: brands
 
   tests:

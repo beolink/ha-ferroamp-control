@@ -4,7 +4,7 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
-## [Unreleased]
+## [0.3.2] - 2026-09-10
 
 ### Fixed
 - **The daily report keeps going while the device is offline.** A device that
@@ -18,6 +18,13 @@ notes for a tag from the matching `## [x.y.z]` section.
   retry comes round, and stopped only from `async_unload_entry`. Its payload
   is resolved when the report is built, so a set-up that never finished still
   reports the installation.
+
+### Changed
+- **Apache License 2.0** instead of MIT, like the rest of the family.
+- **Brand icons ship with the integration**, in
+  `custom_components/ferroamp_control/brand/`, which Home Assistant reads
+  since 2026.3.
+- `hacs.json` names the minimum Home Assistant version.
 
 ## [0.3.1] - 2026-09-09
 
