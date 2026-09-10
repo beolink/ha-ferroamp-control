@@ -70,12 +70,11 @@ is unchanged (0.2.1); EMS Steward 0.30's recovery from a NAK depends on it.
 
 ## Roadmap
 
-- **Sync the shared `stats.py` from ha-ctc** at the next build. `EXTRA_KEYS`
-  there now also lets the per-board `firmwares` object through; the backend
-  has accepted it since schema 2, but every copy dropped it. This integration
-  sends no `firmwares`, so nothing is lost today, but the file is meant to stay
-  byte-identical across the integrations. Add a test that reads `EXTRA_KEYS`
-  from stats.py, so a dropped key fails locally.
+- **A test that holds the report to stats.py's key list.** `stats.py` passes
+  only the keys in its `EXTRA_KEYS` on; anything else `stats_extra` builds is
+  dropped without a word. Read `EXTRA_KEYS` from stats.py and check that every
+  key the report builds is in it, so a dropped key fails locally. (The shared
+  file itself was synced from ha-ctc in 0.3.3.)
 - **Modbus TCP** transport as an alternative to MQTT, once a verified Ferroamp
   register map is available (the config flow is structured to add it).
 
