@@ -4,6 +4,20 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.5] - 2026-09-15
+
+### Added
+- The daily report carries the config entry's state by Home Assistant's own
+  name, such as `loaded` or `setup_retry`, never the reason. Home Assistant
+  logs a failed set-up under its own logger, where the log counter never sees
+  it, so a driver whose hub is away looked healthy.
+
+### Fixed
+- An entry removed or disabled while Home Assistant waits to set it up again
+  no longer keeps reporting until the next restart. Home Assistant cancels the
+  retry without calling `async_unload_entry`, so the reporter now checks
+  before every report that its entry still exists and is enabled.
+
 ## [0.3.4] - 2026-09-11
 
 ### Fixed
