@@ -4,7 +4,7 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
-## [0.3.6] - Unreleased
+## [0.3.6] - 2026-10-17
 
 ### Fixed
 - **A standing charge or discharge is sent again.** The hub drops an ExtAPI
