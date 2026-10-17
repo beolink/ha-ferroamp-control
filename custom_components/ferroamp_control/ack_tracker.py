@@ -11,10 +11,10 @@ request's ``transId``:
   it ("all ESOs have changed setting"), again ``ack`` or ``nak``.
 
 Payloads are JSON ``{"transId": "...", "status": "ack"|"nak", "msg": "..."}``
-as observed on VSH's hub (2026-08-29). The parser is tolerant about case
-and about a missing ``status`` (then the verdict is read from the start of
-``msg``), and ignores answers whose ``transId`` it never sent: those belong
-to another client on the same broker.
+as observed on a hub in the field (2026-08-29). The parser is tolerant
+about case and about a missing ``status`` (then the verdict is read from
+the start of ``msg``), and ignores answers whose ``transId`` it never
+sent: those belong to another client on the same broker.
 
 Pure Python, no Home Assistant: the tracker is what the tests exercise; the
 runtime feeds it and the entities read it.
@@ -35,7 +35,8 @@ VERDICT_NAK = "nak"
 # A command the hub has not answered within this many seconds is forgotten:
 # a late answer would otherwise be paired with a stale command, and the
 # pending list would grow with every lost message. The hub's response
-# arrives within a second on VSH; result within a few. 60 s is generous.
+# arrives within a second, its result about ten seconds after the request.
+# 60 s is generous.
 PENDING_TTL_S = 60.0
 
 
@@ -75,7 +76,8 @@ class CommandTracker:
     answered anything (or after a reset). An answer to an older command
     is still recorded in ``last_ack`` / ``last_nak`` / ``last_result``,
     but does not change ``following``: the hub follows what it was told
-    last.
+    last. A repeat of the same command (``sent(..., refresh=True)``) is
+    not a new command: the verdict stands until the hub answers it.
     """
 
     pending: dict = field(default_factory=dict)     # transId -> {cmd, sent_at}
@@ -88,11 +90,20 @@ class CommandTracker:
     unmatched: int = 0                              # answers to someone else's commands
     naks: int = 0                                   # cumulative, for the daily report
 
-    def sent(self, trans_id: str, name: str, arg: str | None, at: float) -> None:
+    def sent(self, trans_id: str, name: str, arg: str | None, at: float, *,
+             refresh: bool = False) -> None:
         cmd = {"name": name, "arg": arg}
         self.expire(at)
         self.pending[trans_id] = {"cmd": cmd, "sent_at": at}
         self.latest_trans_id = trans_id
+        last = self.last_command or {}
+        if refresh and (last.get("name"), last.get("arg")) == (name, arg):
+            # The same command once more (the runtime's refresh, 0.3.6): it
+            # still dates from when it was first given, and the hub's
+            # verdict on it stands until the hub answers the repeat. The
+            # repeat is the latest transaction, so a NAK of it counts.
+            self.last_command = {**last, "trans_id": trans_id, "refreshed_at": at}
+            return
         self.last_command = {**cmd, "trans_id": trans_id, "at": at}
         # A new command has no verdict yet; the old one's does not carry over.
         self.following = None
@@ -100,6 +111,14 @@ class CommandTracker:
     def expire(self, now: float) -> None:
         for tid in [t for t, p in self.pending.items() if now - p["sent_at"] > PENDING_TTL_S]:
             self.pending.pop(tid, None)
+
+    def busy(self, now: float) -> bool:
+        """Is a transaction we sent still open: no result yet, and younger
+        than PENDING_TTL_S? The hub refuses a request that arrives on top
+        of an open one ("transaction in progress"). Expires first, so an
+        answer that never came cannot keep it busy for good."""
+        self.expire(now)
+        return bool(self.pending)
 
     def receive(self, kind: str, payload: str, at: float) -> str | None:
         """Feed one answer. Returns the verdict when it concerned a command

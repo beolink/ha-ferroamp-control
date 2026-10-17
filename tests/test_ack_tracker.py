@@ -98,3 +98,38 @@ def test_unanswered_commands_expire_and_reset_forgets_the_verdict():
     tr.reset()                                      # control switched off
     assert tr.following is None and tr.pending == {} and tr.status == "idle"
     assert tr.last_nak is not None                  # the record stays for the attributes
+
+
+def test_a_repeat_of_the_same_command_keeps_the_verdict_until_the_hub_answers_it():
+    tr = CommandTracker()
+    tr.sent("t1", "charge", "100", at=100.0)
+    tr.receive(KIND_RESPONSE, _answer("t1", "ack", "sending cmd to ESOs"), 100.1)
+    tr.receive(KIND_RESULT, _answer("t1", "ack", "all ESOs have changed setting"), 110.1)
+    # The runtime's refresh (0.3.6): the verdict stands, the command still
+    # dates from when it was given, and the repeat is the latest transaction.
+    tr.sent("t2", "charge", "100", at=400.0, refresh=True)
+    assert tr.following is True and tr.status == "ack"
+    assert tr.last_command == {"name": "charge", "arg": "100", "trans_id": "t2",
+                               "at": 100.0, "refreshed_at": 400.0}
+    assert tr.latest_trans_id == "t2" and "t2" in tr.pending
+    # A NAK of the repeat is the hub's verdict on the command, and counts.
+    tr.receive(KIND_RESPONSE, _answer("t2", "nak", "transaction in progress"), 400.1)
+    assert tr.following is False and tr.naks == 1
+    # A "repeat" of some other command is a new command after all.
+    tr.sent("t3", "charge", "3000", at=500.0, refresh=True)
+    assert tr.following is None and tr.last_command["at"] == 500.0
+    assert "refreshed_at" not in tr.last_command
+
+
+def test_busy_while_a_transaction_waits_for_its_result_or_the_ttl():
+    tr = CommandTracker()
+    assert tr.busy(0.0) is False
+    tr.sent("t1", "charge", "100", at=0.0)
+    tr.receive(KIND_RESPONSE, _answer("t1", "ack", "sending cmd to ESOs"), 0.1)
+    assert tr.busy(5.0) is True                     # received, still being applied
+    tr.receive(KIND_RESULT, _answer("t1", "ack", "all ESOs have changed setting"), 10.1)
+    assert tr.busy(10.2) is False
+    # An answer that never comes keeps it busy only until the TTL.
+    tr.sent("t2", "charge", "100", at=20.0)
+    assert tr.busy(20.0 + PENDING_TTL_S) is True
+    assert tr.busy(20.0 + PENDING_TTL_S + 1.0) is False and tr.pending == {}
