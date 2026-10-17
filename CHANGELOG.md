@@ -4,6 +4,30 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.6] - Unreleased
+
+### Fixed
+- **A standing charge or discharge is sent again.** The hub drops an ExtAPI
+  command without a word when a slot of its own portal schedule begins, or
+  when its portal settings change: no NAK, the verdict stays `ack`, and the
+  battery runs on the hub's own logic. The driver publishes only when the
+  command changes (0.1.1), so it kept the hub there for hours while the
+  setpoint said "hold". A charge or discharge that has stood for
+  `REFRESH_S` (300 s) is now published again: with the next write of the
+  setpoint (EMS writes on every tick, so each five-minute tick re-sends it
+  as its one transaction), and from the driver's own timer when nothing
+  writes. The timer fires `REFRESH_S` plus 30 s after the last write and
+  then every `REFRESH_S`, half a minute off EMS's whole-minute ticks: the
+  hub needs about ten seconds to apply a command and refuses one that
+  arrives meanwhile, so a refresh just ahead of EMS's next, changed command
+  would cost that command a tick. `auto` is never sent again, a refresh
+  waits while a transaction is still open, and a NAK keeps its handling
+  (forgotten, sent again on the next write). A refresh keeps the hub's
+  verdict until the hub answers it, so `binary_sensor.<prefix>_following`
+  does not blink; `last_command` keeps the time the command was given and
+  shows the repeat as `refreshed_at`. Switching control off or unloading
+  the entry stops the timer. The daily report is unchanged.
+
 ## [0.3.5] - 2026-09-15
 
 ### Added
