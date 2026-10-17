@@ -84,6 +84,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     runtime = FerroampControlRuntime.from_entry(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
+    # A reload builds a new runtime: the old one's refresh timer must not
+    # go on publishing beside it (0.3.6).
+    entry.async_on_unload(runtime.cancel_refresh)
     _rename_verdict_sensor(hass, entry, runtime)
     await _async_subscribe_answers(hass, entry, runtime)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

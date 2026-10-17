@@ -22,6 +22,7 @@ for name, attrs in (("homeassistant", {}),
         setattr(mod, key, value)
 
 from custom_components.ferroamp_control import mqtt_control  # noqa: E402
+from custom_components.ferroamp_control import runtime as runtime_mod  # noqa: E402
 from custom_components.ferroamp_control.ack_tracker import KIND_RESPONSE  # noqa: E402
 from custom_components.ferroamp_control.runtime import FerroampControlRuntime  # noqa: E402
 
@@ -36,6 +37,8 @@ def _runtime(monkeypatch):
         return payload
 
     monkeypatch.setattr(mqtt_control, "async_send", fake_send)
+    # The refresh timer (0.3.6) never fires here: test_runtime_refresh.py.
+    monkeypatch.setattr(runtime_mod, "_call_later", lambda hass, delay, action: lambda: None)
     rt = FerroampControlRuntime(hass=object(), entry_id="e1", prefix="ferroamp",
                                 base_topic="extapi", max_charge_w=5000.0,
                                 max_discharge_w=5000.0, control_enabled=True)

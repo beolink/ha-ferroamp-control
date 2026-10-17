@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,9 +23,19 @@ from .const import (
     DEFAULT_PREFIX,
     MODE_IDLE,
     MODE_SELF_CONSUMPTION,
+    REFRESH_OFFSET_S,
+    REFRESH_S,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _call_later(hass: HomeAssistant, delay: float, action) -> Callable[[], None]:
+    """Home Assistant's one-shot timer; returns its cancel. Imported here,
+    like mqtt in mqtt_control, so the tests run without Home Assistant."""
+    from homeassistant.helpers.event import async_call_later
+
+    return async_call_later(hass, delay, action)
 
 
 @dataclass
@@ -41,6 +52,8 @@ class FerroampControlRuntime:
     grid_limit_w: float | None = None
     _commanded: bool = False
     _last_cmd: tuple | None = None  # last (name, watts) actually published
+    _last_sent_at: float | None = None  # time.monotonic() of the last publish
+    _refresh_cancel: Callable[[], None] | None = None  # stops the refresh timer (0.3.6)
     # Every command paired with the hub's ack / nak (F42); the status
     # sensor and the "following" binary sensor read it.
     tracker: CommandTracker = field(default_factory=CommandTracker)
@@ -88,16 +101,24 @@ class FerroampControlRuntime:
         # NAK'd command is forgotten in handle_answer and, belt and braces,
         # never deduped against while the tracker says "not following"
         # (0.2.1; EMS's self-healing on a NAK needs this release).
+        #
+        # Or unless a charge or discharge has stood long enough to go out
+        # again (0.3.6, _refresh_due): then this write is its refresh.
         if (name, watts) == self._last_cmd and self.tracker.following is not False:
-            return
-        self._last_cmd = (name, watts)
-        await self._send(name, watts)
-        if name != CMD_AUTO:
-            self._commanded = True
+            if self._refresh_due():
+                await self._send(name, watts, refresh=True)
+        else:
+            self._last_cmd = (name, watts)
+            await self._send(name, watts)
+            if name != CMD_AUTO:
+                self._commanded = True
+        # Whatever this write published, the timer counts from it.
+        self._arm_refresh(REFRESH_S + REFRESH_OFFSET_S)
 
     async def async_release(self) -> None:
         """Hand the battery back to the hub's own logic. Called when control is
         switched off, but only if we had actually commanded it."""
+        self.cancel_refresh()
         if self._commanded:
             await self._send(CMD_AUTO, None)
             self._commanded = False
@@ -107,9 +128,87 @@ class FerroampControlRuntime:
         self.tracker.reset()
         self._notify()
 
-    async def _send(self, name: str, watts: int | None) -> None:
+    def _standing(self) -> tuple | None:
+        """The charge or discharge that stands, or None: control off,
+        nothing published since it came on (or since a NAK), or ``auto``."""
+        if not self.control_enabled or self._last_cmd is None or self._last_cmd[0] == CMD_AUTO:
+            return None
+        return self._last_cmd
+
+    def _refresh_due(self) -> bool:
+        """Should the standing command go out again, unchanged? (0.3.6)
+
+        The hub drops an ExtAPI command without a word when a slot of its
+        own portal schedule begins, or when its settings change: no NAK,
+        the verdict stays "ack", and the battery runs on the hub's own
+        logic. Publishing only on a change, the driver then kept it there
+        for hours while the setpoint said "hold"; the same command sent
+        again takes the battery back within half a minute. So a charge or
+        discharge that has stood REFRESH_S since it last went out goes out
+        again, which bounds any such takeover to about one interval.
+
+        A write counts from REFRESH_S less REFRESH_OFFSET_S on: EMS writes
+        on every tick, five minutes apart by default, and its writes land
+        a moment either side of that, so each tick refreshes rather than
+        every other one.
+
+        Never ``auto``: re-sending it makes the hub re-ramp, and auto is
+        the hub's own logic anyway. Never after a NAK: the command is
+        forgotten then (handle_answer) and the next write sends it, as
+        before. And never while a transaction is still open (sent, no
+        result yet): the hub would refuse it, and a refresh must not storm
+        the hub with NAKs.
+        """
+        if self._standing() is None or self.tracker.following is False:
+            return False
+        if (self._last_sent_at is not None
+                and time.monotonic() - self._last_sent_at < REFRESH_S - REFRESH_OFFSET_S):
+            return False
+        return not self.tracker.busy(time.time())
+
+    def _arm_refresh(self, delay: float) -> None:
+        """Start the refresh timer over, or stop it when nothing stands.
+
+        A refresh rides on a write when one comes. The timer is for when
+        nothing writes (EMS stopped without a release, a setpoint set by
+        hand, EMS ticking less often than every REFRESH_S), and it must
+        keep out of the writer's way: the hub needs about ten seconds to
+        apply a command and refuses one that arrives meanwhile
+        ("transaction in progress"), so a refresh just ahead of the
+        writer's next, changed command would cost that command a tick.
+        EMS's writes come a whole number of minutes apart; the timer fires
+        REFRESH_S plus REFRESH_OFFSET_S after the last write and then
+        every REFRESH_S, half a minute off every one of them, and a write
+        in between starts it over.
+        """
+        self.cancel_refresh()
+        if self._standing() is not None:
+            self._refresh_cancel = _call_later(self.hass, delay, self._async_refresh_timer)
+
+    def cancel_refresh(self) -> None:
+        """Stop the refresh timer: control off, the entry unloaded."""
+        if self._refresh_cancel is not None:
+            self._refresh_cancel()
+            self._refresh_cancel = None
+
+    async def _async_refresh_timer(self, _now=None) -> None:
+        """Nothing has written for a while: refresh from here."""
+        self._refresh_cancel = None
+        if self._refresh_due():
+            name, watts = self._last_cmd
+            try:
+                await self._send(name, watts, refresh=True)
+            except Exception as err:  # noqa: BLE001 - no caller to raise to; the next turn tries
+                _LOGGER.debug("Ferroamp control: refresh not sent: %s", err)
+        self._arm_refresh(REFRESH_S)
+
+    async def _send(self, name: str, watts: int | None, *, refresh: bool = False) -> None:
+        if refresh:
+            _LOGGER.debug("Ferroamp control: %s %s stands, sending it again", name, watts)
         payload = await mqtt_control.async_send(self.hass, self.base_topic, name, watts)
-        self.tracker.sent(payload["transId"], name, payload["cmd"].get("arg"), time.time())
+        self._last_sent_at = time.monotonic()
+        self.tracker.sent(payload["transId"], name, payload["cmd"].get("arg"), time.time(),
+                          refresh=refresh)
         self._notify()
 
     def handle_answer(self, kind: str, payload: str) -> None:

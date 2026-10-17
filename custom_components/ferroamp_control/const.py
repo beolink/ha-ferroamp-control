@@ -33,6 +33,14 @@ CMD_CHARGE = "charge"
 CMD_DISCHARGE = "discharge"
 CMD_AUTO = "auto"
 
+# A standing charge or discharge is published again once it has stood this
+# long (0.3.6): the hub can drop a command without a word (runtime.py).
+REFRESH_S = 300.0
+# How far the refresh keeps out of the writer's way: a write refreshes once
+# the command has stood REFRESH_S less this, and the driver's own timer
+# fires REFRESH_S plus this after the last write (runtime._arm_refresh).
+REFRESH_OFFSET_S = 30.0
+
 # Must match OPTION_KEY in stats.py. Kept here so config_flow can build its
 # schema without importing stats.py, which pulls in Home Assistant.
 CONF_SEND_STATISTICS = "send_statistics"
