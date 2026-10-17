@@ -75,21 +75,22 @@ schedule in the Ferroamp portal begins, or when its portal settings change,
 it goes back to its own logic, sends no NAK, and
 `binary_sensor.ferroamp_following` stays on. Until 0.3.5 the driver
 published only when the command changed, so the hub could stay on its own
-logic for hours while the setpoint said charge or hold. The same command sent again takes the
-battery back within half a minute, so a charge or discharge that has stood
-for five minutes (`REFRESH_S`, 300 s) is now published again:
+logic for hours while the setpoint said charge or hold. The same command
+sent again takes the battery back within half a minute, so a charge or
+discharge that has stood for five minutes (`REFRESH_S`, 300 s) is now
+published again:
 
 - **with the next write** of the setpoint. EMS writes it on every tick, so
   with its default five-minute tick each tick sends a standing charge or
   hold again, as that tick's one transaction.
 - **from the driver's own timer** when nothing writes: EMS stopped without
   handing the hub back, a setpoint set by hand, or EMS ticking less often
-  than every five minutes. The timer fires five and a half minutes after the last
-  write and then every five minutes, which keeps it half a minute off EMS's
-  whole-minute ticks. The hub needs about ten seconds to apply a command
-  and refuses one that arrives meanwhile ("transaction in progress"), so a
-  refresh just ahead of EMS's next, changed command would cost that command
-  a tick.
+  than every five minutes. The timer fires five and a half minutes after
+  the last write and then every five minutes, which keeps it half a minute
+  off EMS's whole-minute ticks. The hub needs about ten seconds to apply a
+  command and refuses one that arrives meanwhile ("transaction in
+  progress"), so a refresh just ahead of EMS's next, changed command would
+  cost that command a tick.
 
 `auto` is never sent again: re-sending it makes the hub re-ramp its
 self-consumption. A refresh waits while a transaction is still open (sent,
@@ -98,7 +99,8 @@ handled as before: the command is forgotten and the next write sends it. A
 refresh keeps the hub's verdict until the hub answers it, so
 `binary_sensor.ferroamp_following` does not blink, and `last_command` keeps
 the time the command was given, with the latest repeat as `refreshed_at`.
-Switching control off, or unloading the entry, stops the timer; after a
+Switching control off, or unloading the entry, stops the timer, an unload
+for good even while a publish is still on its way to the broker; after a
 restart it starts with the first command. While a charge or hold stands
 that is one more transaction every five minutes, at most 288 a day.
 

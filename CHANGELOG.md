@@ -26,7 +26,11 @@ notes for a tag from the matching `## [x.y.z]` section.
   verdict until the hub answers it, so `binary_sensor.<prefix>_following`
   does not blink; `last_command` keeps the time the command was given and
   shows the repeat as `refreshed_at`. Switching control off or unloading
-  the entry stops the timer. The daily report is unchanged.
+  the entry stops the timer; an unload that lands while a publish is
+  still awaited (with a broker that stalls, up to ten seconds) closes the
+  runtime, so the write cannot arm the timer again once it returns and
+  leave the unloaded runtime sending its stale command beside the new
+  one. The daily report is unchanged.
 
 ## [0.3.5] - 2026-09-15
 

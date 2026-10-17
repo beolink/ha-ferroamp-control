@@ -261,9 +261,71 @@ def test_control_off_and_an_unload_stop_the_timer(monkeypatch):
     rt.control_enabled = True
     run(rt.async_apply())
     assert sent[-1] == ("charge", 5000) and len(timers.live) == 1
-    rt.cancel_refresh()                        # the entry unloaded
+    rt.close()                                 # the entry unloaded
     timers.advance(3600)
     assert len(sent) == 3
+
+
+def _stalled_broker(monkeypatch, sent):
+    """async_send that waits for the broker's answer until the test lets
+    it, as Home Assistant's publish waits for the message id (up to ten
+    seconds with a broker that stalls)."""
+    gate = asyncio.Event()
+
+    async def slow_send(hass, base_topic, name, watts=None):
+        payload = mqtt_control.build_payload(name, watts)
+        payload["transId"] = f"t{len(sent) + 1}"
+        sent.append((name, watts))
+        await gate.wait()
+        return payload
+
+    monkeypatch.setattr(mqtt_control, "async_send", slow_send)
+    return gate
+
+
+def test_an_unload_during_a_writes_publish_leaves_no_timer(monkeypatch):
+    """The entry reloads while EMS's charge 5000 is still being published:
+    the write used to arm the timer once the publish returned, after the
+    unload had stopped it, and the unloaded runtime sent charge 5000 every
+    five minutes beside the new one, whatever the new one was told."""
+    rt, sent, timers = _runtime(monkeypatch)
+    gate = _stalled_broker(monkeypatch, sent)
+
+    async def scenario():
+        rt.setpoint_w = 5000.0
+        write = asyncio.ensure_future(rt.async_apply())
+        await asyncio.sleep(0)
+        rt.close()                             # the entry unloads
+        gate.set()                             # the broker answers
+        await write
+
+    run(scenario())
+    assert sent == [("charge", 5000)] and timers.live == []
+    timers.advance(3600)
+    assert sent == [("charge", 5000)]
+
+
+def test_an_unload_during_the_timers_refresh_leaves_no_timer(monkeypatch):
+    rt, sent, timers = _runtime(monkeypatch)
+    _write(rt, 5000.0)
+    _hub_takes(rt, 1)
+    gate = _stalled_broker(monkeypatch, sent)
+
+    async def scenario():
+        # The timer falls due, and its refresh is being published.
+        timer, = timers.live
+        timer["live"] = False
+        timers.clock.now = timer["due"]
+        refresh = asyncio.ensure_future(timer["action"](None))
+        await asyncio.sleep(0)
+        rt.close()
+        gate.set()
+        await refresh
+
+    run(scenario())
+    assert sent == [("charge", 5000)] * 2 and timers.live == []
+    timers.advance(3600)
+    assert len(sent) == 2
 
 
 def test_a_restart_starts_the_timer_fresh(monkeypatch):

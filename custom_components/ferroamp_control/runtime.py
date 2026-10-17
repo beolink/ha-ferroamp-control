@@ -54,6 +54,7 @@ class FerroampControlRuntime:
     _last_cmd: tuple | None = None  # last (name, watts) actually published
     _last_sent_at: float | None = None  # time.monotonic() of the last publish
     _refresh_cancel: Callable[[], None] | None = None  # stops the refresh timer (0.3.6)
+    _closed: bool = False  # the entry unloaded: nothing stands, no timer arms (0.3.6)
     # Every command paired with the hub's ack / nak (F42); the status
     # sensor and the "following" binary sensor read it.
     tracker: CommandTracker = field(default_factory=CommandTracker)
@@ -129,9 +130,11 @@ class FerroampControlRuntime:
         self._notify()
 
     def _standing(self) -> tuple | None:
-        """The charge or discharge that stands, or None: control off,
-        nothing published since it came on (or since a NAK), or ``auto``."""
-        if not self.control_enabled or self._last_cmd is None or self._last_cmd[0] == CMD_AUTO:
+        """The charge or discharge that stands, or None: control off, the
+        entry unloaded, nothing published since control came on (or since
+        a NAK), or ``auto``."""
+        if (self._closed or not self.control_enabled or self._last_cmd is None
+                or self._last_cmd[0] == CMD_AUTO):
             return None
         return self._last_cmd
 
@@ -190,6 +193,20 @@ class FerroampControlRuntime:
         if self._refresh_cancel is not None:
             self._refresh_cancel()
             self._refresh_cancel = None
+
+    def close(self) -> None:
+        """The entry unloaded: stop the timer for good.
+
+        An unload can land while a publish is still awaited (EMS's write,
+        or the timer's own refresh; with a broker that stalls, up to ten
+        seconds), and the write re-arms the timer once its publish
+        returns. Stopping the timer alone left that one running on the
+        unloaded runtime, sending its stale command every REFRESH_S beside
+        the new runtime's for as long as Home Assistant ran. A closed
+        runtime has nothing standing, so it neither arms a timer nor
+        refreshes."""
+        self._closed = True
+        self.cancel_refresh()
 
     async def _async_refresh_timer(self, _now=None) -> None:
         """Nothing has written for a while: refresh from here."""
