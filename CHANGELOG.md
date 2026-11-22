@@ -4,6 +4,18 @@ All notable changes to Ferroamp Control are documented here. Versions follow
 [Semantic Versioning](https://semver.org/); the release workflow takes the
 notes for a tag from the matching `## [x.y.z]` section.
 
+## [0.3.7] - 2026-11-22
+
+### Fixed
+- **Configure on the entry opens again on Home Assistant 2025.12 and
+  later.** The settings flow set `config_entry` itself, which Home
+  Assistant made a property of its own in 2024.11 and stopped allowing in
+  2025.12: the flow raised AttributeError and the entry's Configure said
+  the configuration flow could not be loaded, so the statistics setting
+  could not be reached. The flow keeps the entry as its own attribute,
+  which works on the older releases `hacs.json` allows too. Control was
+  never affected.
+
 ## [0.3.6] - 2026-10-17
 
 ### Fixed
