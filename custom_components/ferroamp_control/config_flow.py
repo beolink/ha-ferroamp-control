@@ -70,12 +70,21 @@ class FerroampControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class FerroampControlOptionsFlow(config_entries.OptionsFlow):
+    """The entry's settings (Configure on the entry).
+
+    The entry is kept as ``_entry``, never as ``config_entry``: Home
+    Assistant 2024.11 made ``OptionsFlow.config_entry`` a property of its
+    own, and from 2025.12 setting it raises AttributeError, so the flow
+    did not open at all ("the configuration flow could not be loaded").
+    Kept by the flow itself, it works on the older releases hacs.json
+    allows too, where the property does not exist."""
+
     def __init__(self, config_entry) -> None:
-        self.config_entry = config_entry
+        self._entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            was_on = {**self.config_entry.data, **self.config_entry.options}.get(
+            was_on = {**self._entry.data, **self._entry.options}.get(
                 CONF_SEND_STATISTICS, True)
             now_on = bool(user_input.get(CONF_SEND_STATISTICS, True))
             if was_on and not now_on:
@@ -85,8 +94,8 @@ class FerroampControlOptionsFlow(config_entries.OptionsFlow):
                 # by tests that run without it.
                 from .stats import async_forget_install
 
-                await async_forget_install(self.hass, self.config_entry, DOMAIN)
+                await async_forget_install(self.hass, self._entry, DOMAIN)
             return self.async_create_entry(title="", data=user_input)
-        cur = {**self.config_entry.data, **self.config_entry.options}
+        cur = {**self._entry.data, **self._entry.options}
         return self.async_show_form(step_id="init", data_schema=_schema(cur),
                                     description_placeholders=STATS_PLACEHOLDERS)
